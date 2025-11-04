@@ -1,7 +1,3 @@
-layout: page
-title: "TITLE"
-permalink: /ranska
-
 <!doctype html>
 <html lang="fi">
 <head>
