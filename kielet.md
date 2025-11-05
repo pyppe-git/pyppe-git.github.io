@@ -306,7 +306,6 @@ function renderMatch(indices){
       sFR=null; sFI=null;
       const remaining=document.querySelectorAll('.item:not(.matched)').length/2;
       leftEl.textContent=remaining;
-      if(remaining===0) setTimeout(()=>alert('Sivu suoritettu! Pisteet: '+score),300);
     }
   }
 }
