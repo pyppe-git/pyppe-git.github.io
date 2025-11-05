@@ -31,14 +31,6 @@ button,input,select{
   background:transparent;
   color:#4957d4
 }
-select option{
-  color:#1215b1;
-  background:#5d9deb
-}
-select option:hover {
-  background:#d43d31;
-  color:#d30cb8;
-}
 .primary{
   background:#042023;
   color:#06b6d4;
@@ -86,6 +78,9 @@ select option:hover {
   .board{grid-template-columns:1fr}
   .list{grid-template-columns:1fr}
 }
+.hidden{
+  display:none !important;
+}
 </style>
 </head>
 <body>
@@ -93,18 +88,19 @@ select option:hover {
 <div class="container">
   <h2>Ranskan sanojen opiskelu</h2>
 
-  <!-- ✅ JSON-syöttö -->
   <h3>Syötä sanat (JSON-muodossa)</h3>
   <textarea id="jsonInput" rows="6" style="width:100%;">
 [
   ["la rentrée","lukuvuoden / työkauden alku"],
-  ["prendre de l'avance","olla etuajassa, edistää työtä"]
+  ["prendre de l'avance","olla etuajassa"],
+  ["analyse","analysoida"]
 ]
   </textarea>
   <button id="loadJSON" class="primary">Lataa sanat</button>
   <hr>
 
   <p>Valitse taso: 1 = yhdistä, 2 = kirjoita.</p>
+
   <div class="controls">
     <label for="level">Taso</label>
     <select id="level">
@@ -127,21 +123,15 @@ select option:hover {
       Yritykset: <span id="attempts">0</span>
     </div>
     <div>
-      Jäljellä sivulla: <span id="left">0</span>
+      Jäljellä: <span id="left">0</span>
     </div>
   </div>
 </div>
 
 
 <script>
-/* =========================
-   1) Sanat JSON-muodosta
-   ========================= */
 let WORDS = [];
 
-/* =========================
-   Muuttujat
-   ========================= */
 const PAGE_SIZE = 10;
 let pages=[],pageIndex=0,score=0,attempts=0,currentOrder=[];
 
@@ -154,21 +144,14 @@ const main=document.getElementById('mainArea'),
       attemptsEl=document.getElementById('attempts'),
       leftEl=document.getElementById('left');
 
-
-/* =========================
-   JSON lataus
-   ========================= */
 document.getElementById("loadJSON").addEventListener("click", () => {
   const t = document.getElementById("jsonInput").value;
-
   try {
     const data = JSON.parse(t);
-
     if (!Array.isArray(data) || !data.every(x => Array.isArray(x) && x.length === 2)) {
       alert("Virhe: JSON tulee olla muodossa [[fr,fi], ...]");
       return;
     }
-
     WORDS = data;
     start();
   } catch (e) {
@@ -176,10 +159,6 @@ document.getElementById("loadJSON").addEventListener("click", () => {
   }
 });
 
-
-/* =========================
-   Perusfunktiot
-   ========================= */
 function shuffle(a){
   const c=a.slice();
   for(let i=c.length-1;i>0;i--){
@@ -226,22 +205,23 @@ function updateStatus(){
 
 
 /* =========================
-   Renderointi
+   Render
    ========================= */
 function render(){
   main.innerHTML='';
   const lvl=parseInt(levelSel.value,10);
-  const indices=pages[pageIndex]||[];
-  leftEl.textContent=indices.length;
 
-  if(lvl===1) renderMatch(indices);
-  else        renderType(indices);
-
-  pageSel.value=pageIndex;
+  if(lvl===1){
+    pageSel.classList.remove("hidden");
+    renderMatch(pages[pageIndex]||[]);
+  } else {
+    pageSel.classList.add("hidden");
+    renderTypeAll();
+  }
 }
 
 
-/* --- 1) YHDISTÄ --- */
+/* -------------- TASO 1 ---------------- */
 function renderMatch(indices){
   const fr = shuffle(indices.map(i=>WORDS[i][0]));
   const fi = shuffle(indices.map(i=>WORDS[i][1]));
@@ -332,15 +312,19 @@ function renderMatch(indices){
 }
 
 
-/* --- 2) KIRJOITA --- */
-function renderType(indices){
+
+/* -------------- TASO 2 ---------------- */
+/*
+  ✅ Kaikki sanat yhdessä jonossa
+  ✅ Jos väärin → lisätään takaisin jonoon
+  ✅ Päättyy vasta kun kaikki oikein
+*/
+function renderTypeAll(){
   const col=document.createElement('div');
   col.className='col';
   col.innerHTML='<h3>Kirjoita ranskaksi</h3>';
 
-  const order=shuffle(indices.slice());
-  let pos=0;
-  let local=order.length;
+  let queue = shuffle(WORDS.map((_,i)=>i));  // index-jono
 
   const text=document.createElement('div');
   text.style.fontSize='18px';
@@ -364,23 +348,26 @@ function renderType(indices){
   main.appendChild(col);
 
   function show(){
-    if(pos>=order.length){
-      text.textContent='Valmis';
+    if(queue.length===0){
+      text.textContent='Valmis – kaikki oikein!';
       input.disabled=true;
       btn.disabled=true;
+      leftEl.textContent=0;
       return;
     }
-    text.textContent=WORDS[order[pos]][1];
+    const idx = queue[0];
+    text.textContent = WORDS[idx][1];
     input.value='';
     input.focus();
+    leftEl.textContent = queue.length;
   }
 
   function check(){
-    if(pos>=order.length)return;
+    if(queue.length===0) return;
 
-    const idx=order[pos];
-    const correct=WORDS[idx][0];
-    const user=input.value||'';
+    const idx = queue.shift(); 
+    const correct = WORDS[idx][0];
+    const user = input.value || '';
 
     attempts++;
     attemptsEl.textContent=attempts;
@@ -388,48 +375,32 @@ function renderType(indices){
     const norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
 
     if(norm(user)===norm(correct)){
-      fb.textContent='Oikein ✓ '+correct;
+      fb.textContent='Oikein ✓ ' + correct;
       score+=10;
       scoreEl.textContent=score;
-    }else{
-      fb.textContent='Väärin ✗ Oikea: '+correct;
+    } else {
+      fb.textContent='Väärin ✗ Oikea: ' + correct;
       score=Math.max(0,score-2);
       scoreEl.textContent=score;
+      queue.push(idx);   // ← palautetaan jonon loppuun!
     }
 
-    pos++;
-    local--;
-    leftEl.textContent=local;
-    setTimeout(show,600);
+    setTimeout(show,350);
   }
 
-  input.addEventListener('keydown',e=>{if(e.key==='Enter')check()});
   btn.addEventListener('click',check);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')check()});
 
-  leftEl.textContent=order.length;
+  leftEl.textContent = queue.length;
   show();
 }
 
 
-/* =========================
-   UI Kuuntelijat
-   ========================= */
-levelSel.addEventListener('change',()=>{
-  pageIndex=0;
-  render();
-});
-pageSel.addEventListener('change',()=>{
-  pageIndex=parseInt(pageSel.value,10);
-  render();
-});
-shuffleBtn.addEventListener('click',()=>{
-  buildPages();
-  pageIndex=0;
-  render();
-  updateStatus();
-});
+/* ========== UI ========== */
+levelSel.addEventListener('change',()=>{ render(); });
+pageSel.addEventListener('change',()=>{ pageIndex=parseInt(pageSel.value,10); render(); });
+shuffleBtn.addEventListener('click',()=>{ start(); });
 resetBtn.addEventListener('click',start);
-
 </script>
 </body>
 </html>
