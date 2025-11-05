@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Ranskan opiskelu</title>
+<title>Kielen opiskelu</title>
 <style>
 body{
   font-family:Arial,Helvetica,sans-serif;
@@ -86,7 +86,7 @@ button,input,select{
 <body>
 
 <div class="container">
-  <h2>Ranskan sanojen opiskelu</h2>
+  <h2>Sanojen opiskelu</h2>
 
   <h3>Syötä sanat (JSON-muodossa)</h3>
   <textarea id="jsonInput" rows="6" style="width:100%;">
