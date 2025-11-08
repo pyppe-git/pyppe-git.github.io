@@ -91,21 +91,70 @@ button,input,select{
   <h3>Syötä sanat (JSON-muodossa)</h3>
   <textarea id="jsonInput" rows="6" style="width:100%;">
 [
-  ["la rentrée","lukuvuoden / työkauden alku"],
-  ["prendre de l'avance","olla etuajassa"],
-  ["analyse","analysoida"]
+  ["la rentrée", "lukukausi"],
+  ["un jingle", "tunnus"],
+  ["clarifier", "selkeyttää"],
+  ["un auditeur", "kuuntelija"],
+  ["une auditrice", "kuuntelija"],
+  ["abriter", "suojata"],
+  ["une tempête", "myrsky"],
+  ["une inondation", "tulva"],
+  ["en particulier", "erityisesti"],
+  ["à l'aise", "luonteva"],
+  ["un fauteuil", "nojatuoli"],
+  ["se poser des questions", "epäillä"],
+  ["extrême", "äärimmäinen"],
+  ["se rendre compte", "tajuta"],
+  ["un dicton", "sanonta"],
+  ["un plongeur", "sukeltaja"],
+  ["se détacher de", "irtautua"],
+  ["une priorité", "etusija"],
+  ["s'immerger", "uppoutua"],
+  ["entourer", "ympäröidä"],
+  ["une habitude", "tottumus"],
+  ["un roman", "romaani"],
+  ["se décourager", "lannistua"],
+  ["une échéance", "määräaika"],
+  ["laisser tomber", "hylätä"],
+  ["un bénéfice", "hyöty"],
+  ["pertinent", "oleellinen"],
+  ["audible", "kuultava"],
+  ["captivant", "kiehtova"],
+  ["une exigence", "vaatimus"],
+  ["contraignant", "sitova"],
+  ["se détendre", "rentoutua"],
+  ["viser", "tavoitella"],
+  ["s'entraîner", "harjoitella"],
+  ["un gourou", "guru"],
+  ["un raccourci", "oikotie"],
+  ["préalable", "ennalta"],
+  ["consacrer", "omistaa"],
+  ["se dépasser", "ylittää"],
+  ["convaincre", "vakuuttaa"],
+  ["abordable", "edullinen"],
+  ["une méfiance", "epäluulo"],
+  ["une transcription", "transkriptio"],
+  ["s'inscrire", "rekisteröityä"],
+  ["gratuit", "ilmainen"],
+  ["constater", "havaita"],
+  ["expliquer simplement", "selittää"],
+  ["l'actualité", "ajankohta"],
+  ["progresser", "edistyä"],
+  ["atteindre", "saavuttaa"],
+  ["un défi", "haaste"]
 ]
   </textarea>
   <button id="loadJSON" class="primary">Lataa sanat</button>
   <hr>
 
-  <p>Valitse taso: 1 = yhdistä, 2 = kirjoita.</p>
+  <p>Valitse taso: 1 = yhdistä, 2 = kirjoita suomeksi, 3 = kirjoita ranskaksi</p>
 
   <div class="controls">
     <label for="level">Taso</label>
     <select id="level">
       <option value="1">1</option>
       <option value="2">2</option>
+      <option value="3">3</option>
     </select>
 
     <label for="page">Sivu</label>
@@ -113,6 +162,9 @@ button,input,select{
 
     <button id="shuffle" class="primary">Sekoita</button>
     <button id="reset">Aloita</button>
+    <label for="pageSize">Sanat/sivu</label>
+    <input id="pageSize" type="number" min="1" value="10" style="width:70px">
+    <button id="applyPageSize">Aseta</button>
   </div>
 
   <main id="mainArea"></main>
@@ -132,8 +184,21 @@ button,input,select{
 <script>
 let WORDS = [];
 
-const PAGE_SIZE = 10;
+let PAGE_SIZE = 10;
 let pages=[],pageIndex=0,score=0,attempts=0,currentOrder=[];
+const pageSizeInput = document.getElementById("pageSize");
+const applyPageSizeBtn = document.getElementById("applyPageSize");
+
+applyPageSizeBtn.addEventListener("click", () => {
+  const v = parseInt(pageSizeInput.value, 10);
+  if (!isNaN(v) && v > 0) {
+    PAGE_SIZE = v;
+    buildPages();    // luo uudet sivut
+    pageIndex = 0;   // palaa sivun alkuun
+    render();
+    updateStatus();
+  }
+});
 
 const main=document.getElementById('mainArea'),
       levelSel=document.getElementById('level'),
@@ -209,16 +274,23 @@ function updateStatus(){
    ========================= */
 function render(){
   main.innerHTML='';
-  const lvl=parseInt(levelSel.value,10);
+  const lvl = parseInt(levelSel.value,10);
+  const indices = pages[pageIndex] || [];
 
   if(lvl===1){
-    pageSel.classList.remove("hidden");
-    renderMatch(pages[pageIndex]||[]);
-  } else {
-    pageSel.classList.add("hidden");
-    renderTypeAll();
+    renderMatch(indices);
+    return;
+  }
+  if(lvl===2){
+    renderTypePage(indices, false);   // FI → FR
+    return;
+  }
+  if(lvl===3){
+    renderTypePage(indices, true);    // FR → FI
+    return;
   }
 }
+
 
 
 /* -------------- TASO 1 ---------------- */
@@ -318,12 +390,15 @@ function renderMatch(indices){
   ✅ Jos väärin → lisätään takaisin jonoon
   ✅ Päättyy vasta kun kaikki oikein
 */
-function renderTypeAll(){
+function renderTypePage(indices, reverse=false){
+  main.innerHTML='';
+
   const col=document.createElement('div');
   col.className='col';
-  col.innerHTML='<h3>Kirjoita ranskaksi</h3>';
+  col.innerHTML=`<h3>Kirjoita ${reverse ? "suomeksi" : "ranskaksi"}</h3>`;
 
-  let queue = shuffle(WORDS.map((_,i)=>i));  // index-jono
+  // luodaan jono sivun sanoista
+  let queue = indices.slice();
 
   const text=document.createElement('div');
   text.style.fontSize='18px';
@@ -331,7 +406,7 @@ function renderTypeAll(){
 
   const input=document.createElement('input');
   input.className='big';
-  input.placeholder='Kirjoita ranskaksi...';
+  input.placeholder=`Kirjoita ${reverse ? "suomeksi" : "ranskaksi"}...`;
 
   const btn=document.createElement('button');
   btn.className='primary';
@@ -348,14 +423,17 @@ function renderTypeAll(){
 
   function show(){
     if(queue.length===0){
-      text.textContent='Valmis – kaikki oikein!';
+      text.textContent='Sivu valmis – kaikki oikein!';
       input.disabled=true;
       btn.disabled=true;
       leftEl.textContent=0;
       return;
     }
+
     const idx = queue[0];
-    text.textContent = WORDS[idx][1];
+    // reverse=false → FI→FR
+    // reverse=true  → FR→FI
+    text.textContent = reverse ? WORDS[idx][0] : WORDS[idx][1];
     input.value='';
     input.focus();
     leftEl.textContent = queue.length;
@@ -364,8 +442,8 @@ function renderTypeAll(){
   function check(){
     if(queue.length===0) return;
 
-    const idx = queue.shift(); 
-    const correct = WORDS[idx][0];
+    const idx = queue.shift();
+    const correct = reverse ? WORDS[idx][1] : WORDS[idx][0];
     const user = input.value || '';
 
     attempts++;
@@ -381,14 +459,14 @@ function renderTypeAll(){
       fb.textContent='Väärin ✗ Oikea: ' + correct;
       score=Math.max(0,score-2);
       scoreEl.textContent=score;
-      queue.push(idx);   // ← palautetaan jonon loppuun!
+      queue.push(idx);
     }
 
     setTimeout(show,350);
   }
 
-  btn.addEventListener('click',check);
   input.addEventListener('keydown',e=>{if(e.key==='Enter')check()});
+  btn.addEventListener('click',check);
 
   leftEl.textContent = queue.length;
   show();
