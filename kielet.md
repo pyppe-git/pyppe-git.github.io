@@ -146,6 +146,7 @@ button,input,select{
   </textarea>
   <button id="loadJSON" class="primary">Lataa sanat</button>
   <button id="sync">Sync to GitHub</button>
+  <button id="loadFromGitHub">Load from GitHub</button>
   <hr>
 
   <p>Valitse taso: 1 = yhdistä, 2 = kirjoita suomeksi, 3 = kirjoita ranskaksi</p>
@@ -232,6 +233,40 @@ document.getElementById("sync").onclick = () => {
 
     window.open(url, "_blank");
 };
+
+document.getElementById("loadFromGitHub").addEventListener("click", async () => {
+    const username = "pyppe-git";    
+    const repo = "pyppe-git.github.io";            
+    const path = "data/used_words1.json";  // esim. sama polku kuin syncissä
+    const branch = "main";
+
+    const url =
+        `https://raw.githubusercontent.com/${username}/${repo}/${branch}/${path}`;
+
+    try {
+        const res = await fetch(url, { cache: "no-store" });
+
+        if (!res.ok) {
+            alert("Virhe ladattaessa GitHubista: " + res.status);
+            return;
+        }
+
+        const json = await res.json();
+
+        if (!Array.isArray(json) || !json.every(x => Array.isArray(x) && x.length === 2)) {
+            alert("GitHub JSON ei ole muodossa [[fr,fi],...]");
+            return;
+        }
+
+        WORDS = json;
+        localStorage.setItem("usedWords", JSON.stringify(json)); // synkkaa myös localStorageen
+        start();
+
+        alert("Sanat ladattu GitHubista!");
+    } catch (e) {
+        alert("Virhe: " + e.message);
+    }
+});
 
 document.getElementById("loadJSON").addEventListener("click", () => {
   const t = document.getElementById("jsonInput").value;
