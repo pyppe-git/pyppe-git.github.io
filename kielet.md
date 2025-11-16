@@ -145,6 +145,7 @@ button,input,select{
 ]
   </textarea>
   <button id="loadJSON" class="primary">Lataa sanat</button>
+  <button id="sync">Sync to GitHub</button>
   <hr>
 
   <p>Valitse taso: 1 = yhdistä, 2 = kirjoita suomeksi, 3 = kirjoita ranskaksi</p>
@@ -208,6 +209,29 @@ const main=document.getElementById('mainArea'),
       scoreEl=document.getElementById('score'),
       attemptsEl=document.getElementById('attempts'),
       leftEl=document.getElementById('left');
+
+function saveUsedWord(word) {
+    const data = JSON.parse(localStorage.getItem("usedWords") || "[]");
+    if (!data.includes(word)) {
+        data.push(word);
+        localStorage.setItem("usedWords", JSON.stringify(data));
+    }
+}
+
+// SYNC to GITHUB -NAPPI ---
+document.getElementById("sync").onclick = () => {
+    const username = "pyppe-git";
+    const repo = "pyppe-git.github.io";
+    const path = "data/used_words.json";
+
+    const content = localStorage.getItem("usedWords") || "[]";
+    const encoded = encodeURIComponent(content);
+
+    const url =
+      `https://github.com/${username}/${repo}/new/main/?filename=${path}&value=${encoded}`;
+
+    window.open(url, "_blank");
+};
 
 document.getElementById("loadJSON").addEventListener("click", () => {
   const t = document.getElementById("jsonInput").value;
