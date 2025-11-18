@@ -91,60 +91,14 @@ button,input,select{
   <h3>Syötä sanat (JSON-muodossa)</h3>
   <textarea id="jsonInput" rows="6" style="width:100%;">
 [
-  ["la rentrée", "lukukausi"],
-  ["un jingle", "tunnus"],
-  ["clarifier", "selkeyttää"],
-  ["un auditeur", "kuuntelija"],
-  ["une auditrice", "kuuntelija"],
-  ["abriter", "suojata"],
-  ["une tempête", "myrsky"],
-  ["une inondation", "tulva"],
-  ["en particulier", "erityisesti"],
-  ["à l'aise", "luonteva"],
-  ["un fauteuil", "nojatuoli"],
-  ["se poser des questions", "epäillä"],
-  ["extrême", "äärimmäinen"],
-  ["se rendre compte", "tajuta"],
-  ["un dicton", "sanonta"],
-  ["un plongeur", "sukeltaja"],
-  ["se détacher de", "irtautua"],
-  ["une priorité", "etusija"],
-  ["s'immerger", "uppoutua"],
-  ["entourer", "ympäröidä"],
-  ["une habitude", "tottumus"],
-  ["un roman", "romaani"],
-  ["se décourager", "lannistua"],
-  ["une échéance", "määräaika"],
-  ["laisser tomber", "hylätä"],
-  ["un bénéfice", "hyöty"],
-  ["pertinent", "oleellinen"],
-  ["audible", "kuultava"],
-  ["captivant", "kiehtova"],
-  ["une exigence", "vaatimus"],
-  ["contraignant", "sitova"],
-  ["se détendre", "rentoutua"],
-  ["viser", "tavoitella"],
-  ["s'entraîner", "harjoitella"],
-  ["un gourou", "guru"],
-  ["un raccourci", "oikotie"],
-  ["préalable", "ennalta"],
-  ["consacrer", "omistaa"],
-  ["se dépasser", "ylittää"],
-  ["convaincre", "vakuuttaa"],
-  ["abordable", "edullinen"],
-  ["une méfiance", "epäluulo"],
-  ["une transcription", "transkriptio"],
-  ["s'inscrire", "rekisteröityä"],
-  ["gratuit", "ilmainen"],
-  ["constater", "havaita"],
-  ["expliquer simplement", "selittää"],
-  ["l'actualité", "ajankohta"],
-  ["progresser", "edistyä"],
-  ["atteindre", "saavuttaa"],
-  ["un défi", "haaste"]
+  ["la rentrée", "wtf"]
 ]
   </textarea>
   <button id="loadJSON" class="primary">Lataa sanat</button>
+  <button id="sync">Sync to GitHub</button>
+  <label for="githubFiles">GitHub-tiedosto:</label>
+  <select id="githubFiles"></select>
+  <button id="loadFromGitHub" class="primary">Lataa GitHubista</button>
   <hr>
 
   <p>Valitse taso: 1 = yhdistä, 2 = kirjoita suomeksi, 3 = kirjoita ranskaksi</p>
@@ -208,6 +162,140 @@ const main=document.getElementById('mainArea'),
       scoreEl=document.getElementById('score'),
       attemptsEl=document.getElementById('attempts'),
       leftEl=document.getElementById('left');
+
+function saveUsedWord(word) {
+    const data = JSON.parse(localStorage.getItem("usedWords") || "[]");
+    if (!data.includes(word)) {
+        data.push(word);
+        localStorage.setItem("usedWords", JSON.stringify(data));
+    }
+}
+
+// --- 2. GitHub dropdown ja load-funktio ---
+const githubUser = 'pyppe-git';
+const githubRepo = 'pyppe-git.github.io';
+const githubBranch = 'main';
+const githubFolder = 'data';
+const githubFilesDropdown = document.getElementById('githubFiles');
+const loadGitHubBtn = document.getElementById('loadFromGitHub');
+
+async function fetchGitHubFiles() {
+    try {
+        const apiUrl = `https://api.github.com/repos/${githubUser}/${githubRepo}/contents/${githubFolder}?ref=${githubBranch}`;
+        const resp = await fetch(apiUrl);
+        if(!resp.ok) throw new Error('GitHub API error: ' + resp.status);
+        const files = await resp.json();
+        const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+        githubFilesDropdown.innerHTML = '';
+        jsonFiles.forEach(f => {
+            const option = document.createElement('option');
+            option.value = f.download_url;
+            option.textContent = f.name;
+            githubFilesDropdown.appendChild(option);
+        });
+    } catch(e) {
+        alert('Virhe GitHubista haettaessa: ' + e.message);
+    }
+}
+
+loadGitHubBtn.addEventListener('click', async () => {
+    const url = githubFilesDropdown.value;
+    if (!url) return alert('Valitse tiedosto ensin');
+
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Virhe ladattaessa tiedostoa: ' + resp.status);
+
+        const data = await resp.json();
+
+        if (!Array.isArray(data) || !data.every(x => Array.isArray(x) && x.length === 2)) {
+            return alert('JSON pitää olla muodossa [[fr,fi],...]');
+        }
+
+        // ★ Tyhjennä käytetyt sanat ja WORDS
+        localStorage.removeItem("usedWords");
+        WORDS = data.slice(); // Tee kopio, ettei viittaus sotkeudu
+
+        // Aloita peli puhtailla sanoilla
+        pageIndex = 0;
+        buildPages(); // Luo sivut uusista sanoista
+        render();     // Piirrä uusi sivu
+        updateStatus();
+
+
+    } catch (e) {
+        alert('Virhe: ' + e.message);
+    }
+});
+
+
+
+fetchGitHubFiles(); // hae tiedostot heti sivun latautuessa
+
+
+// SYNC to GITHUB -NAPPI
+document.getElementById("sync").onclick = () => {
+    const username = "pyppe-git";             // oma GitHub username
+    const repo = "pyppe-git.github.io";       // repo
+    const path = "data/used_words.json";      // tiedosto GitHubissa
+
+    const textarea = document.getElementById("jsonInput");
+    if (!textarea) return alert("Textarea ei löytynyt!");
+
+    const content = textarea.value || "[]"; // tyhjä -> tyhjä taulukko
+    const encoded = encodeURIComponent(content);
+
+    // GitHub edit URL
+    const url = `https://github.com/${username}/${repo}/new/main/?filename=${path}&value=${encoded}`;
+
+    // Avaa uusi välilehti GitHubiin
+    window.open(url, "_blank");
+
+};
+
+
+document.getElementById("loadFromGitHub").addEventListener("click", async () => {
+    const username = "pyppe-git";    
+    const repo = "pyppe-git.github.io";            
+    const branch = "main";
+
+    // Käytetään dropdownin valintaa
+    const githubFilesDropdown = document.getElementById("githubFilesDropdown");
+    const path = githubFilesDropdown.value;
+    if (!path) return alert("Valitse tiedosto ensin");
+
+    const url = `https://raw.githubusercontent.com/${username}/${repo}/${branch}/${path}`;
+
+    try {
+        const res = await fetch(url, { cache: "no-store" });
+
+        if (!res.ok) {
+            alert("Virhe ladattaessa GitHubista: " + res.status);
+            return;
+        }
+
+        const json = await res.json();
+
+        if (!Array.isArray(json) || !json.every(x => Array.isArray(x) && x.length === 2)) {
+            alert("GitHub JSON ei ole muodossa [[fr,fi],...]");
+            return;
+        }
+
+        // ★ Tyhjennä vanhat käytetyt sanat ja korvaa WORDS
+        WORDS = json.slice(); // kopio
+        localStorage.removeItem("usedWords"); // ei lisää päälle vanhoja
+
+        pageIndex = 0;
+        buildPages();
+        render();
+        updateStatus();
+
+        alert("Sanat ladattu GitHubista!");
+
+    } catch (e) {
+        alert("Virhe: " + e.message);
+    }
+});
 
 document.getElementById("loadJSON").addEventListener("click", () => {
   const t = document.getElementById("jsonInput").value;
@@ -414,15 +502,47 @@ function renderTypePage(indices, reverse=false){
 
   const fb=document.createElement('div');
   fb.style.marginTop='8px';
-
+  const hintBtn = document.createElement("button");
+  hintBtn.textContent = "Vihje";
+  hintBtn.className = "primary";
   col.appendChild(text);
   col.appendChild(input);
   col.appendChild(btn);
+  col.appendChild(hintBtn);
   col.appendChild(fb);
   main.appendChild(col);
 
+  let hintIndex = 0; // kuinka monta kirjainta on paljastettu
+
+  hintBtn.onclick = () => {
+      if (pos >= order.length) return; // ei enää sanoja
+
+      const correct = WORDS[order[pos]][0];
+
+      // Jos vihjeitä ei enää ole
+      if (hintIndex >= correct.length) {
+          fb.textContent = "Ei enempää vihjeitä!";
+          return;
+      }
+
+      // Paljasta kirjain kerrallaan
+      hintIndex++;
+      const reveal = correct.substring(0, hintIndex);
+
+      // Täytetään input kenttään
+      input.value = reveal;
+
+      // Näytetään myös vihje divissä
+      fb.textContent = `Vihje: ${reveal}`;
+
+      // Halutessasi pistevähennys
+      score = Math.max(0, score - 1);
+      scoreEl.textContent = score;
+  };
+
   function show(){
     if(queue.length===0){
+      hintIndex = 0;
       text.textContent='Sivu valmis – kaikki oikein!';
       input.disabled=true;
       btn.disabled=true;
