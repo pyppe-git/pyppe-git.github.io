@@ -505,9 +505,13 @@ function renderTypePage(indices, reverse=false){
   const hintBtn = document.createElement("button");
   hintBtn.textContent = "Vihje";
   hintBtn.className = "primary";
+  const hintBtn = document.createElement("button");
+  hintBtn.textContent = "Vihje";
+  hintBtn.className = "primary";
   col.appendChild(text);
   col.appendChild(input);
   col.appendChild(btn);
+  col.appendChild(hintBtn);
   col.appendChild(hintBtn);
   col.appendChild(fb);
   main.appendChild(col);
@@ -540,8 +544,37 @@ function renderTypePage(indices, reverse=false){
       scoreEl.textContent = score;
   };
 
+  let hintIndex = 0; // kuinka monta kirjainta on paljastettu
+
+  hintBtn.onclick = () => {
+      if (pos >= order.length) return; // ei enää sanoja
+
+      const correct = WORDS[order[pos]][0];
+
+      // Jos vihjeitä ei enää ole
+      if (hintIndex >= correct.length) {
+          fb.textContent = "Ei enempää vihjeitä!";
+          return;
+      }
+
+      // Paljasta kirjain kerrallaan
+      hintIndex++;
+      const reveal = correct.substring(0, hintIndex);
+
+      // Täytetään input kenttään
+      input.value = reveal;
+
+      // Näytetään myös vihje divissä
+      fb.textContent = `Vihje: ${reveal}`;
+
+      // Halutessasi pistevähennys
+      score = Math.max(0, score - 1);
+      scoreEl.textContent = score;
+  };
+
   function show(){
     if(queue.length===0){
+      hintIndex = 0;
       hintIndex = 0;
       text.textContent='Sivu valmis – kaikki oikein!';
       input.disabled=true;
