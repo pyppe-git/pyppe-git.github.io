@@ -503,7 +503,7 @@ function renderTypePage(indices, reverse=false){
   const fb=document.createElement('div');
   fb.style.marginTop='8px';
   const hintBtn = document.createElement("button");
-  hintBtn.textContent = "Vihje";
+  //hintBtn.textContent = "Vihje";
   hintBtn.className = "primary";
   col.appendChild(text);
   col.appendChild(input);
@@ -533,7 +533,7 @@ function renderTypePage(indices, reverse=false){
       input.value = reveal;
 
       // Näytetään myös vihje divissä
-      fb.textContent = `Vihje: ${reveal}`;
+      //fb.textContent = `Vihje: ${reveal}`;
 
       // Halutessasi pistevähennys
       score = Math.max(0, score - 1);
@@ -559,31 +559,99 @@ function renderTypePage(indices, reverse=false){
     leftEl.textContent = queue.length;
   }
 
-  function check(){
-    if(queue.length===0) return;
+function check() {
+    if (queue.length === 0) return;
 
     const idx = queue.shift();
-    const correct = reverse ? WORDS[idx][1] : WORDS[idx][0];
-    const user = input.value || '';
+
+    // Alkuperäiset sanat JSONista
+    const foreignRaw = WORDS[idx][0];  
+    const nativeRaw  = WORDS[idx][1];  
+
+    // Pilkotut vaihtoehdot
+    const foreignList = foreignRaw.split("/").map(s => s.trim());
+    const nativeList  = nativeRaw.split("/").map(s => s.trim());
+
+    const correctList = reverse ? nativeList : foreignList;
+
+    const user = input.value || "";
 
     attempts++;
-    attemptsEl.textContent=attempts;
+    attemptsEl.textContent = attempts;
 
-    const norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+    const norm = s =>
+        s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-    if(norm(user)===norm(correct)){
-      fb.textContent='Oikein ✓ ' + correct;
-      score+=10;
-      scoreEl.textContent=score;
-    } else {
-      fb.textContent='Väärin ✗ Oikea: ' + correct;
-      score=Math.max(0,score-2);
-      scoreEl.textContent=score;
-      queue.push(idx);
+    const nUser = norm(user);
+
+    // -------------------------------------
+    // LEVENSHTEIN DISTANCE
+    // -------------------------------------
+    function dist(a, b) {
+        const m = a.length, n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (a[i - 1] === b[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = Math.min(
+                        dp[i - 1][j] + 1,
+                        dp[i][j - 1] + 1,
+                        dp[i - 1][j - 1] + 1
+                    );
+                }
+            }
+        }
+        return dp[m][n];
     }
 
-    setTimeout(show,350);
-  }
+    // -------------------------------------
+    // TARKISTUS: tarkka / fuzzy match
+    // -------------------------------------
+    let isCorrect = false;
+
+    for (const opt of correctList) {
+        const nOpt = norm(opt);
+
+        // tarkka osuma
+        if (nOpt === nUser) {
+            isCorrect = true;
+            break;
+        }
+
+        // FUZZY: korkeintaan 2 virhettä
+        if (dist(nOpt, nUser) <= 3) {
+            isCorrect = true;
+            break;
+        }
+    }
+
+    // -------------------------------------
+    // PALAUTE
+    // -------------------------------------
+    if (isCorrect) {
+        fb.textContent =
+            "Oikein ✓ " + foreignList.join(" / ") + " – " + nativeList.join(" / ");
+
+        score += 10;
+        scoreEl.textContent = score;
+    } else {
+        fb.textContent =
+            "Väärin ✗ " + foreignList.join(" / ") + " – " + nativeList.join(" / ");
+
+        score = Math.max(0, score - 2);
+        scoreEl.textContent = score;
+
+        queue.push(idx);
+    }
+
+    setTimeout(show, 350);
+}
 
   input.addEventListener('keydown',e=>{if(e.key==='Enter')check()});
   btn.addEventListener('click',check);
